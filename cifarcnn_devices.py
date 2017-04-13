@@ -15,13 +15,16 @@ if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
 save_path = os.path.join(save_dir, 'cifar10_cnn')
-train_batch_size = 64
-img_size_cropped = 24
+
+local_epoch = 1
+train_batch_size = 50
 clients = 100
 training_per_client = 500
 testing_per_client = 100
 train_file = 'train.txt'
 test_file = 'test.txt'
+
+img_size_cropped = 24
 
 
 def update_device_data(file, i_t_d, c_t_d, l_t_d, i_t_g, c_t_g, l_t_g):
@@ -142,48 +145,72 @@ def random_batch(images_train, labels_train):
     return x_batch, y_batch
 
 
-def optimize(num_iterations, images_train, labels_train, session, saver, merged, train_writer, global_step, accuracy, optimizer, x, y_true):
+def get_maximum_batch(images_train):
+    return int(len(images_train)/train_batch_size)
+
+
+def get_batch(batch, images_train, labels_train):
+    # Create a random index.
+
+    start = batch * train_batch_size;
+    last = (batch+1)*train_batch_size;
+    print(batch, start, last)
+    # Use the random index to select random images and labels.
+    x_batch = images_train[start:last, :, :, :]
+    y_batch = labels_train[start:last, :]
+
+    return x_batch, y_batch
+
+
+def optimize(num_iterations, images_train, labels_train, images_test, labels_test, cls_test, y_pred_cls, class_names,
+             session, saver, merged, train_writer, global_step, accuracy, optimizer, x, y_true):
     # Start-time used for printing time-usage below.
     start_time = time.time()
 
     for i in range(num_iterations):
-        # Get a batch of training examples.
-        # x_batch now holds a batch of images and
-        # y_true_batch are the true labels for those images.
-        x_batch, y_true_batch = random_batch(images_train, labels_train)
+        max_batch = get_maximum_batch(images_train)
+        print("max_batch", max_batch)
+        for b in range(max_batch):
+            # Get a batch of training examples.
+            # x_batch now holds a batch of images and
+            # y_true_batch are the true labels for those images.
+            # x_batch, y_true_batch = random_batch(images_train, labels_train)
+            x_batch, y_true_batch = get_batch(b, images_train, labels_train)
 
-        # Put the batch into a dict with the proper names
-        # for placeholder variables in the TensorFlow graph.
-        feed_dict_train = {x: x_batch,
-                           y_true: y_true_batch}
+            # Put the batch into a dict with the proper names
+            # for placeholder variables in the TensorFlow graph.
+            feed_dict_train = {x: x_batch,
+                               y_true: y_true_batch}
 
-        # Run the optimizer using this batch of training data.
-        # TensorFlow assigns the variables in feed_dict_train
-        # to the placeholder variables and then runs the optimizer.
-        # We also want to retrieve the global_step counter.
-        i_global, _ = session.run([global_step, optimizer],
-                                  feed_dict=feed_dict_train)
+            # Run the optimizer using this batch of training data.
+            # TensorFlow assigns the variables in feed_dict_train
+            # to the placeholder variables and then runs the optimizer.
+            # We also want to retrieve the global_step counter.
+            i_global, _ = session.run([global_step, optimizer],
+                                      feed_dict=feed_dict_train)
 
-        # Print status to screen every 100 iterations (and last).
-        if (i_global % 100 == 0) or (i == num_iterations - 1):
-            # Calculate the accuracy on the training-batch.
-            summary, batch_acc = session.run([merged, accuracy],
-                                             feed_dict=feed_dict_train)
-            train_writer.add_summary(summary, i)
-            # Print status.
-            msg = "Global Step: {0:>6}, Training Batch Accuracy: {1:>6.1%}"
-            print(msg.format(i_global, batch_acc))
+            # Print status to screen every 100 iterations (and last).
+            if (i_global % 100 == 0) or (i == num_iterations - 1):
+                # Calculate the accuracy on the training-batch.
+                summary, batch_acc = session.run([merged, accuracy],
+                                                 feed_dict=feed_dict_train)
+                train_writer.add_summary(summary, i)
+                # Print status.
+                msg = "Global Step: {0:>6}, Training Batch Accuracy: {1:>6.1%}"
+                print(msg.format(i_global, batch_acc))
 
-        # Save a checkpoint to disk every 1000 iterations (and last).
-        if (i_global % 1000 == 0) or (i == num_iterations - 1):
-            # Save all variables of the TensorFlow graph to a
-            # checkpoint. Append the global_step counter
-            # to the filename so we save the last several checkpoints.
-            saver.save(session,
-                       save_path=save_path,
-                       global_step=global_step)
-
-            print("Saved checkpoint.")
+            # Save a checkpoint to disk every 1000 iterations (and last).
+            if (i_global % 1000 == 0) or (i == num_iterations - 1):
+                # Save all variables of the TensorFlow graph to a
+                # checkpoint. Append the global_step counter
+                # to the filename so we save the last several checkpoints.
+                saver.save(session,
+                           save_path=save_path,
+                           global_step=global_step)
+                helper.print_test_accuracy(session, images_test, labels_test, cls_test,
+                                           x, y_true, y_pred_cls, num_classes, class_names,
+                                           show_example_errors=False, show_confusion_matrix=False)
+                print("Saved checkpoint.")
 
     # Ending time.
     end_time = time.time()
@@ -196,7 +223,6 @@ def optimize(num_iterations, images_train, labels_train, session, saver, merged,
 
 
 def main():
-
     cifar10.maybe_download_and_extract()
     class_names = cifar10.load_class_names()
     print(class_names)
@@ -301,7 +327,11 @@ def main():
     merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter(train_sum_dir, session.graph)
 
-    optimize(1000, images_train, labels_train, session, saver, merged, train_writer, global_step, accuracy, optimizer, x, y_true)
+    #print(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='network'))
+    for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='network'):
+        print(var)
+    optimize(local_epoch, images_train, labels_train, images_test, labels_test, cls_test, y_pred_cls, class_names, session,
+             saver, merged, train_writer, global_step, accuracy, optimizer, x, y_true)
 
     helper.print_test_accuracy(session, images_test, labels_test, cls_test,
                                x, y_true, y_pred_cls, num_classes, class_names,
