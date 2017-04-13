@@ -172,7 +172,9 @@ def optimize(num_iterations):
             saver.save(session,
                        save_path=save_path,
                        global_step=global_step)
-
+            helper.print_test_accuracy(session, images_test, labels_test, cls_test,
+                                       x, y_true, y_pred_cls, num_classes, class_names,
+                                       show_example_errors=False, show_confusion_matrix=False)
             print("Saved checkpoint.")
 
     # Ending time.
