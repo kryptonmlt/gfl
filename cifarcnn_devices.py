@@ -116,10 +116,10 @@ def main_network(images, training, y_true):
     return y_pred, loss
 
 
-def create_network(training, input_image, y_true):
+def create_network(device_id, training, input_image, y_true):
     # Wrap the neural network in the scope named 'network'.
     # Create new variables during training, and re-use during testing.
-    with tf.variable_scope('network', reuse=not training):
+    with tf.variable_scope(str(device_id)+'network', reuse=not training):
         # Create TensorFlow graph for pre-processing.
         images = pre_process(images=input_image, training=training)
 
@@ -283,28 +283,29 @@ def main():
     # Create Neural Network for Training Phase
     global_step = tf.Variable(initial_value=0, name='global_step', trainable=False)
 
-    _, loss = create_network(training=True, input_image=x, y_true=y_true)
-
-    optimizer = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(loss, global_step=global_step)
-
-    # Create Neural Network for Test Phase / Inference
-    y_pred, _ = create_network(training=False, input_image=x, y_true=y_true)
-
-    y_pred_cls = tf.argmax(y_pred, dimension=1)
-
-    correct_prediction = tf.equal(y_pred_cls, y_true_cls)
-
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    losses = []
+    optimizers = []
+    y_preds = []
+    y_pred_clss = []
+    correct_predictions = []
+    accuracies = []
+    for d in range(clients):
+        _, loss = create_network(d, training=True, input_image=x, y_true=y_true)
+        optimizer = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(loss, global_step=global_step)
+        # Create Neural Network for Test Phase / Inference
+        y_pred, _ = create_network(d, training=False, input_image=x, y_true=y_true)
+        y_pred_cls = tf.argmax(y_pred, dimension=1)
+        correct_prediction = tf.equal(y_pred_cls, y_true_cls)
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        tf.summary.scalar(str(d)+'accuracy', accuracy)
+        losses.append(loss)
+        optimizers.append(optimizer)
+        y_preds.append(y_pred)
+        y_pred_clss.append(y_pred_cls)
+        correct_predictions.append(correct_prediction)
+        accuracies.append(accuracy)
 
     saver = tf.train.Saver()
-
-    tf.summary.scalar('accuracy', accuracy)
-
-    # weights_conv1 = helper.get_weights_variable(layer_name='layer_conv1')
-    # weights_conv2 = helper.get_weights_variable(layer_name='layer_conv2')
-    # output_conv1 = helper.get_layer_output(layer_name='layer_conv1')
-    # output_conv2 = helper.get_layer_output(layer_name='layer_conv2')
-
     session = tf.Session()
 
     try:
@@ -327,15 +328,14 @@ def main():
     merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter(train_sum_dir, session.graph)
 
-    #print(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='network'))
-    for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='network'):
-        print(var)
-    optimize(local_epoch, images_train, labels_train, images_test, labels_test, cls_test, y_pred_cls, class_names, session,
-             saver, merged, train_writer, global_step, accuracy, optimizer, x, y_true)
-
-    helper.print_test_accuracy(session, images_test, labels_test, cls_test,
-                               x, y_true, y_pred_cls, num_classes, class_names,
-                               show_example_errors=True, show_confusion_matrix=True)
+    for d in range(clients):
+        print("Optimizing:", str(d))
+        optimize(local_epoch, images_train_device[d], labels_train_device[d], images_test_device[d],
+                 labels_test_device[d], cls_test_device[d], y_pred_clss[d], class_names, session,
+                 saver, merged, train_writer, global_step, accuracies[d], optimizers[d], x, y_true)
+        helper.print_test_accuracy(session, images_test_device[d], labels_test_device[d], cls_test_device[d],
+                                   x, y_true, y_pred_clss[d], num_classes, class_names,
+                                   show_example_errors=True, show_confusion_matrix=True)
 
 
 if __name__ == "__main__":
