@@ -128,8 +128,10 @@ def predict_cls(images, labels, cls_true, x, y_true, session, y_pred_cls):
 
         # Create a feed-dict with the images and labels
         # between index i and j.
-        feed_dict = {x: images[i:j, :],
-                     y_true: labels[i:j, :]}
+        if isinstance(images, np.ndarray):
+            feed_dict = {x: images[i:j, :], y_true: labels[i:j, :]}
+        else:
+            feed_dict = {x: images[i:j], y_true: labels[i:j]}
 
         # Calculate the predicted class using TensorFlow.
         cls_pred[i:j] = session.run(y_pred_cls, feed_dict=feed_dict)

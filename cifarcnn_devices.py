@@ -156,8 +156,10 @@ def get_batch(batch, images_train, labels_train):
     last = (batch+1)*train_batch_size;
     print(batch, start, last)
     # Use the random index to select random images and labels.
-    x_batch = images_train[start:last, :, :, :]
-    y_batch = labels_train[start:last, :]
+    #x_batch = images_train[start:last, :, :, :]
+    #y_batch = labels_train[start:last, :]
+    x_batch = images_train[start:last]
+    y_batch = labels_train[start:last]
 
     return x_batch, y_batch
 
@@ -271,7 +273,8 @@ def main():
     update_device_data(test_file,
                        images_test_device, cls_test_device, labels_test_device,
                        images_test_group, cls_test_group, labels_test_group)
-
+    print(images_train_device[0][0].shape)
+    print(images_train.shape)
     # prepare input placeholders in tensorflow
     x = tf.placeholder(tf.float32, shape=[None, img_size, img_size, num_channels], name='x')
     y_true = tf.placeholder(tf.float32, shape=[None, num_classes], name='y_true')
