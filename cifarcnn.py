@@ -14,17 +14,17 @@ cifar10.maybe_download_and_extract()
 class_names = cifar10.load_class_names()
 print(class_names)
 
-#50,000 images/labels
+# 50,000 images/labels
 images_train, cls_train, labels_train = cifar10.load_training_data()
 
-#10,000 images/labels
+# 10,000 images/labels
 images_test, cls_test, labels_test = cifar10.load_test_data()
 
 print("Size of:")
 print("- Training-set:\t\t{}".format(len(images_train)))
 print("- Test-set:\t\t{}".format(len(images_test)))
 
-#split into a list per label
+# split into a list per label
 
 img_size_cropped = 24
 
@@ -93,14 +93,14 @@ def main_network(images, training):
     # It is very similar to the previous tutorials, except
     # the use of so-called batch-normalization in the first layer.
     with pt.defaults_scope(activation_fn=tf.nn.relu, phase=phase):
-        y_pred, loss = x_pretty.\
-            conv2d(kernel=5, depth=64, name='layer_conv1', batch_normalize=True).\
-            max_pool(kernel=2, stride=2).\
-            conv2d(kernel=5, depth=64, name='layer_conv2').\
-            max_pool(kernel=2, stride=2).\
-            flatten().\
-            fully_connected(size=256, name='layer_fc1').\
-            fully_connected(size=128, name='layer_fc2').\
+        y_pred, loss = x_pretty. \
+            conv2d(kernel=5, depth=64, name='layer_conv1', batch_normalize=True). \
+            max_pool(kernel=2, stride=2). \
+            conv2d(kernel=5, depth=64, name='layer_conv2'). \
+            max_pool(kernel=2, stride=2). \
+            flatten(). \
+            fully_connected(size=256, name='layer_fc1'). \
+            fully_connected(size=128, name='layer_fc2'). \
             softmax_classifier(num_classes=num_classes, labels=y_true)
 
     return y_pred, loss
@@ -163,8 +163,8 @@ def optimize(num_iterations):
         # Print status to screen every 100 iterations (and last).
         if (i_global % 100 == 0) or (i == num_iterations - 1):
             # Calculate the accuracy on the training-batch.
-            summary,batch_acc = session.run([merged,accuracy],
-                                    feed_dict=feed_dict_train)
+            summary, batch_acc = session.run([merged, accuracy],
+                                             feed_dict=feed_dict_train)
             train_writer.add_summary(summary, i)
             # Print status.
             msg = "Global Step: {0:>6}, Training Batch Accuracy: {1:>6.1%}"
@@ -190,12 +190,13 @@ def optimize(num_iterations):
     # Print the time-usage.
     print("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
 
+
 # Get the first images from the test-set.
-#images = images_test[0:9]
+# images = images_test[0:9]
 # Get the true classes for those images.
-#cls_true = cls_test[0:9]
+# cls_true = cls_test[0:9]
 # Plot the images and labels using our helper-function above.
-#plot_images(images=images, cls_true=cls_true, smooth=True)
+# plot_images(images=images, cls_true=cls_true, smooth=True)
 
 x = tf.placeholder(tf.float32, shape=[None, img_size, img_size, num_channels], name='x')
 y_true = tf.placeholder(tf.float32, shape=[None, num_classes], name='y_true')
@@ -204,14 +205,14 @@ y_true_cls = tf.argmax(y_true, dimension=1)
 
 distorted_images = pre_process(images=x, training=True)
 
-#Create Neural Network for Training Phase
+# Create Neural Network for Training Phase
 global_step = tf.Variable(initial_value=0, name='global_step', trainable=False)
 
 _, loss = create_network(training=True)
 
 optimizer = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(loss, global_step=global_step)
 
-#Create Neural Network for Test Phase / Inference
+# Create Neural Network for Test Phase / Inference
 y_pred, _ = create_network(training=False)
 
 y_pred_cls = tf.argmax(y_pred, dimension=1)
@@ -224,10 +225,10 @@ saver = tf.train.Saver()
 
 tf.summary.scalar('accuracy', accuracy)
 
-#weights_conv1 = helper.get_weights_variable(layer_name='layer_conv1')
-#weights_conv2 = helper.get_weights_variable(layer_name='layer_conv2')
-#output_conv1 = helper.get_layer_output(layer_name='layer_conv1')
-#output_conv2 = helper.get_layer_output(layer_name='layer_conv2')
+# weights_conv1 = helper.get_weights_variable(layer_name='layer_conv1')
+# weights_conv2 = helper.get_weights_variable(layer_name='layer_conv2')
+# output_conv1 = helper.get_layer_output(layer_name='layer_conv1')
+# output_conv2 = helper.get_layer_output(layer_name='layer_conv2')
 
 session = tf.Session()
 
@@ -266,4 +267,3 @@ optimize(num_iterations=100000)
 helper.print_test_accuracy(session, images_test, labels_test, cls_test,
                            x, y_true, y_pred_cls, num_classes, class_names,
                            show_example_errors=True, show_confusion_matrix=True)
-
