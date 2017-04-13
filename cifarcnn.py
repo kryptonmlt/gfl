@@ -155,9 +155,9 @@ def optimize(num_iterations):
         # Print status to screen every 100 iterations (and last).
         if (i_global % 100 == 0) or (i == num_iterations - 1):
             # Calculate the accuracy on the training-batch.
-            batch_acc = session.run(accuracy,
+            summary,batch_acc = session.run([merged,accuracy],
                                     feed_dict=feed_dict_train)
-
+            train_writer.add_summary(summary, i)
             # Print status.
             msg = "Global Step: {0:>6}, Training Batch Accuracy: {1:>6.1%}"
             print(msg.format(i_global, batch_acc))
@@ -214,6 +214,8 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 saver = tf.train.Saver()
 
+tf.summary.scalar('accuracy', accuracy)
+
 #weights_conv1 = helper.get_weights_variable(layer_name='layer_conv1')
 #weights_conv2 = helper.get_weights_variable(layer_name='layer_conv2')
 #output_conv1 = helper.get_layer_output(layer_name='layer_conv1')
@@ -222,6 +224,8 @@ saver = tf.train.Saver()
 session = tf.Session()
 
 save_dir = 'checkpoints/'
+train_sum_dir = 'checkpoints/train_summaries/'
+
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
@@ -246,7 +250,10 @@ except:
 
 train_batch_size = 64
 
-optimize(num_iterations=22500)
+merged = tf.summary.merge_all()
+train_writer = tf.summary.FileWriter(train_sum_dir, session.graph)
+
+optimize(num_iterations=100000)
 
 helper.print_test_accuracy(session, images_test, labels_test, cls_test,
                            x, y_true, y_pred_cls, num_classes, class_names,
