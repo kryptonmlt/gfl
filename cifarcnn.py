@@ -14,15 +14,23 @@ cifar10.maybe_download_and_extract()
 class_names = cifar10.load_class_names()
 print(class_names)
 
+#50,000 images/labels
 images_train, cls_train, labels_train = cifar10.load_training_data()
 
+#10,000 images/labels
 images_test, cls_test, labels_test = cifar10.load_test_data()
 
 print("Size of:")
 print("- Training-set:\t\t{}".format(len(images_train)))
 print("- Test-set:\t\t{}".format(len(images_test)))
 
+#split into a list per label
+
 img_size_cropped = 24
+
+clients = 100
+training_per_client = 500
+testing_per_client = 100
 
 
 def pre_process_image(image, training):
