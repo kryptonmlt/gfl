@@ -24,7 +24,65 @@ print("Size of:")
 print("- Training-set:\t\t{}".format(len(images_train)))
 print("- Test-set:\t\t{}".format(len(images_test)))
 
+# split into a list per label
+images_train_group = [[] for n in range(10)]
+cls_train_group = [[] for n in range(10)]
+labels_train_group = [[] for n in range(10)]
+images_test_group = [[] for n in range(10)]
+cls_test_group = [[] for n in range(10)]
+labels_test_group = [[] for n in range(10)]
+
+for i in range(50000):
+    cur_label = cls_train[i]
+    images_train_group[cur_label].append(images_train[i])
+    labels_train_group[cur_label].append(labels_train[i])
+    cls_train_group[cur_label].append(cls_train[i])
+
+for i in range(10000):
+    cur_label = cls_test[i]
+    images_test_group[cur_label].append(images_test[i])
+    labels_test_group[cur_label].append(labels_test[i])
+    cls_test_group[cur_label].append(cls_test[i])
+
 img_size_cropped = 24
+clients = 100
+training_per_client = 500
+testing_per_client = 100
+
+# split into a list per device
+images_train_device = [[] for n in range(clients)]
+cls_train_device = [[] for n in range(clients)]
+labels_train_device = [[] for n in range(clients)]
+images_test_device = [[] for n in range(clients)]
+cls_test_device = [[] for n in range(clients)]
+labels_test_device = [[] for n in range(clients)]
+
+trainFile = 'train.txt'
+testFile = 'test.txt'
+
+
+def update_device_data(file, i_t_d, c_t_d, l_t_d, i_t_g, c_t_g, l_t_g):
+    with open(file) as f:
+        d = 0
+        for line in f:
+            images_labels = line.split(':')
+            imgs_ids = list(map(int, images_labels[0].split(',')))
+            lbls_ids = list(map(int, images_labels[1].split(',')))
+
+            for i in range(len(imgs_ids)):
+                i_t_d[d].append(i_t_g[lbls_ids[i]][imgs_ids[i]])
+                c_t_d[d].append(c_t_g[lbls_ids[i]][imgs_ids[i]])
+                l_t_d[d].append(l_t_g[lbls_ids[i]][imgs_ids[i]])
+
+            d += 1
+
+
+update_device_data(trainFile,
+                   images_train_device, cls_train_device, labels_train_device,
+                   images_train_group, cls_train_group, labels_train_group)
+update_device_data(testFile,
+                   images_test_device, cls_test_device, labels_test_device,
+                   images_test_group, cls_test_group, labels_test_group)
 
 
 def pre_process_image(image, training):
