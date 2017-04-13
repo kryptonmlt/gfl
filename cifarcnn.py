@@ -228,8 +228,8 @@ tf.summary.scalar('accuracy', accuracy)
 
 session = tf.Session()
 
-save_dir = 'checkpoints/'
-train_sum_dir = 'checkpoints/train_summaries/'
+save_dir = 'cifar10_simple_checkpoint/'
+train_sum_dir = save_dir+'train_summaries/'
 
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)

@@ -8,8 +8,8 @@ import cifar10s as cifar10
 from cifar10s import img_size, num_channels, num_classes
 import helper
 
-save_dir = 'checkpoints/'
-train_sum_dir = 'checkpoints/train_summaries/'
+save_dir = 'cifar_devices_checkpoints/'
+train_sum_dir = save_dir+'train_summaries/'
 
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
