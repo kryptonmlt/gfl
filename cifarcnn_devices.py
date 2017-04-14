@@ -16,10 +16,10 @@ if not os.path.exists(save_dir):
 
 save_path = os.path.join(save_dir, 'cifar10_cnn')
 
-global_epoch = 1
-local_epoch = 100
+global_epoch = 2
+local_epoch = 1
 train_batch_size = 50
-clients = 10
+clients = 3
 training_per_client = 500
 testing_per_client = 100
 train_file = 'train.txt'
@@ -30,6 +30,7 @@ img_size_cropped = 24
 
 def update_device_data(file, i_t_d, c_t_d, l_t_d, i_t_g, c_t_g, l_t_g):
     with open(file) as f:
+        counters = np.zeros(shape=[clients], dtype=int)
         d = 0
         for line in f:
             if d == clients:
@@ -39,10 +40,10 @@ def update_device_data(file, i_t_d, c_t_d, l_t_d, i_t_g, c_t_g, l_t_g):
             lbls_ids = list(map(int, images_labels[1].split(',')))
 
             for i in range(len(imgs_ids)):
-                i_t_d[d].append(i_t_g[lbls_ids[i]][imgs_ids[i]])
-                c_t_d[d].append(c_t_g[lbls_ids[i]][imgs_ids[i]])
-                l_t_d[d].append(l_t_g[lbls_ids[i]][imgs_ids[i]])
-
+                i_t_d[d][counters[d]]=i_t_g[lbls_ids[i]][imgs_ids[i]]
+                c_t_d[d][counters[d]]=c_t_g[lbls_ids[i]][imgs_ids[i]]
+                l_t_d[d][counters[d]]=l_t_g[lbls_ids[i]][imgs_ids[i]]
+            counters[d]=counters[d]+1
             d += 1
 
 
@@ -131,6 +132,18 @@ def create_network(device_id, training, input_image, y_true):
 
     return y_pred, loss
 
+def create_parameter_network(input_image, y_true):
+    # Wrap the neural network in the scope named 'network'.
+    # Create new variables during training, and re-use during testing.
+    training = False
+    with tf.variable_scope('parameter_network', reuse=not training):
+        # Create TensorFlow graph for pre-processing.
+        images = pre_process(images=input_image, training=training)
+
+        # Create TensorFlow graph for the main processing.
+        y_pred, loss = main_network(images=images, training=training, y_true=y_true)
+
+    return y_pred, loss
 
 def random_batch(images_train, labels_train):
     # Number of images in the training-set.
@@ -158,14 +171,8 @@ def get_batch(batch, images_train, labels_train):
     start = batch * train_batch_size;
     last = (batch + 1) * train_batch_size;
     # Use the random index to select random images and labels.
-    x_batch = images_train[start:last]
-    y_batch = labels_train[start:last]
-    if isinstance(images_train, np.ndarray):
-        x_batch = images_train[start:last, :, :, :]
-        y_batch = labels_train[start:last, :]
-    else:
-        x_batch = images_train[start:last]
-        y_batch = labels_train[start:last]
+    x_batch = images_train[start:last, :, :, :]
+    y_batch = labels_train[start:last, :]
 
     return x_batch, y_batch
 
@@ -181,8 +188,8 @@ def optimize(device_id, num_iterations, images_train, labels_train, images_test,
             # Get a batch of training examples.
             # x_batch now holds a batch of images and
             # y_true_batch are the true labels for those images.
-            # x_batch, y_true_batch = random_batch(images_train, labels_train)
-            x_batch, y_true_batch = get_batch(b, images_train, labels_train)
+            x_batch, y_true_batch = random_batch(images_train, labels_train)
+            #x_batch, y_true_batch = get_batch(b, images_train, labels_train)
 
             # Put the batch into a dict with the proper names
             # for placeholder variables in the TensorFlow graph.
@@ -235,34 +242,36 @@ def main():
     print("Size of:")
     print("- Training-set:\t\t{}".format(len(images_train)))
     print("- Test-set:\t\t{}".format(len(images_test)))
-
     # split into a list per label
-    images_train_group = [[] for n in range(10)]
-    cls_train_group = [[] for n in range(10)]
-    labels_train_group = [[] for n in range(10)]
-    images_test_group = [[] for n in range(10)]
-    cls_test_group = [[] for n in range(10)]
-    labels_test_group = [[] for n in range(10)]
+    images_train_group = np.zeros(shape=[10,10000, img_size, img_size, num_channels], dtype=float)
+    cls_train_group = np.zeros(shape=[10, 10000], dtype=int)
+    labels_train_group = np.zeros(shape=[10, 10000,10], dtype=int)
+    images_test_group = np.zeros(shape=[10,1000, img_size, img_size, num_channels], dtype=float)
+    cls_test_group = np.zeros(shape=[10, 10000], dtype=int)
+    labels_test_group = np.zeros(shape=[10, 1000,10], dtype=int)
 
+    counters = np.zeros(shape=[10], dtype=int)
     for i in range(50000):
         cur_label = cls_train[i]
-        images_train_group[cur_label].append(images_train[i])
-        labels_train_group[cur_label].append(labels_train[i])
-        cls_train_group[cur_label].append(cls_train[i])
-
+        images_train_group[cur_label][counters[cur_label]]=images_train[i]
+        labels_train_group[cur_label][counters[cur_label]]=labels_train[i]
+        cls_train_group[cur_label][counters[cur_label]]=cls_train[i]
+        counters[cur_label]=counters[cur_label]+1
+    counters = np.zeros(shape=[10], dtype=int)
     for i in range(10000):
         cur_label = cls_test[i]
-        images_test_group[cur_label].append(images_test[i])
-        labels_test_group[cur_label].append(labels_test[i])
-        cls_test_group[cur_label].append(cls_test[i])
+        images_test_group[cur_label][counters[cur_label]]=images_test[i]
+        labels_test_group[cur_label][counters[cur_label]]=labels_test[i]
+        cls_test_group[cur_label][counters[cur_label]]=cls_test[i]
+    counters = np.zeros(shape=[10], dtype=int)
 
     # split into a list per device
-    images_train_device = [[] for n in range(clients)]
-    cls_train_device = [[] for n in range(clients)]
-    labels_train_device = [[] for n in range(clients)]
-    images_test_device = [[] for n in range(clients)]
-    cls_test_device = [[] for n in range(clients)]
-    labels_test_device = [[] for n in range(clients)]
+    images_train_device = np.zeros(shape=[clients,training_per_client, img_size, img_size, num_channels], dtype=float)
+    cls_train_device = np.zeros(shape=[clients, training_per_client], dtype=int)
+    labels_train_device = np.zeros(shape=[clients, training_per_client,10], dtype=int)
+    images_test_device = np.zeros(shape=[clients,testing_per_client, img_size, img_size, num_channels], dtype=float)
+    cls_test_device = np.zeros(shape=[clients, testing_per_client], dtype=int)
+    labels_test_device = np.zeros(shape=[clients, testing_per_client,10], dtype=int)
 
     update_device_data(train_file,
                        images_train_device, cls_train_device, labels_train_device,
@@ -289,6 +298,7 @@ def main():
     accuracies = []
     local_steps = []
     for d in range(clients):
+        print("Creating network for client:",d)
         _, loss = create_network(d, training=True, input_image=x, y_true=y_true)
         local_step = tf.Variable(initial_value=0, name='local_step', trainable=False)
         optimizer = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(loss, global_step=local_step)
@@ -330,7 +340,9 @@ def main():
     train_writer = tf.summary.FileWriter(train_sum_dir, session.graph)
 
     for global_step in range(global_epoch):
+        print("Starting global epoch:",global_step)
         for d in range(clients):
+            print("Optimizing network for client:",d)
             optimize(d, local_epoch, images_train_device[d], labels_train_device[d], images_test_device[d],
                      labels_test_device[d], cls_test_device[d], y_pred_clss[d], class_names, session,
                      merged, train_writer, local_steps[d], accuracies[d], optimizers[d], x, y_true)
